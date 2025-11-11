@@ -37,25 +37,26 @@ def _minutes_to_start(ev: Dict[str, Any]) -> Optional[float]:
     )
     if not iso:
         return None
+
     try:
         s = str(iso)
         # Manejar "2025-11-16T13:00:00Z"
         if s.endswith("Z"):
-            s = s.replace("Z", "+00:00")
-        ts = datetime.fromisoformat(s)
-        if ts.tzinfo is None:
-            ts = ts.replace(tzinfo=timezone.utc)
+            s = s[:-1] + "+00:00"
+        dt = datetime.fromisoformat(s)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
     except Exception:
         return None
 
     now = datetime.now(timezone.utc)
-    return (ts - now).total_seconds() / 60.0
+    return (dt - now).total_seconds() / 60.0
 
 
-def _is_big_league(name: str) -> bool:
+def _is_big_league(name: Any) -> bool:
     if not name:
         return False
-    s = name.lower()
+    s = str(name).lower()
     keywords = [
         "world cup",
         "champions league",
@@ -78,25 +79,20 @@ def _score_single(ev: Dict[str, Any]) -> float:
     """
     base = 0.01
     mins = _minutes_to_start(ev)
-    league = ev.get("league") or ""
 
-    # Bump por tiempo a inicio (pensando en cuando falten pocas horas).
     if mins is not None:
         if 20 <= mins <= 60:
             base += 0.03
         elif 60 < mins <= 180:
             base += 0.025
-        elif 180 < mins <= 360:
-        #     3 a 6 horas
+        elif 180 < mins <= 360:       # 3 a 6 horas
             base += 0.02
-        elif 360 < mins <= 1440:
-        #     6h a 24h
+        elif 360 < mins <= 1440:      # 6h a 24h
             base += 0.015
         else:
             base += 0.0
 
-    # Liga "grande"
-    if _is_big_league(league):
+    if _is_big_league(ev.get("league")):
         base += 0.015
 
     # Cap y piso
@@ -107,6 +103,7 @@ def _score_single(ev: Dict[str, Any]) -> float:
 def score_events(events: List[Dict[str, Any]]) -> List[EvPrediction]:
     """Aplica la heurística v1 a una lista de eventos."""
     out: List[EvPrediction] = []
+
     for idx, ev in enumerate(events or []):
         fixture_id = str(ev.get("fixture_id") or idx)
         market = ev.get("market") or "h2h"
@@ -127,4 +124,5 @@ def score_events(events: List[Dict[str, Any]]) -> List[EvPrediction]:
                 },
             )
         )
+
     return out
