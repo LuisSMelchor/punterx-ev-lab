@@ -40,7 +40,7 @@ def _minutes_to_start(ev: Dict[str, Any]) -> Optional[float]:
 
     try:
         s = str(iso)
-        # Manejar "2025-11-16T13:00:00Z"
+        # Ejemplo: "2025-11-16T13:00:00Z"
         if s.endswith("Z"):
             s = s[:-1] + "+00:00"
         dt = datetime.fromisoformat(s)
@@ -73,24 +73,31 @@ def _is_big_league(name: Any) -> bool:
 def _score_single(ev: Dict[str, Any]) -> float:
     """
     Heurística v1:
-    - Base 0.01.
-    - Bumps por ventana de tiempo.
+    - Base 0.02.
+    - Bumps por ventana de tiempo (hasta 7 días).
     - Bump por liga importante.
     """
-    base = 0.01
+    base = 0.02
     mins = _minutes_to_start(ev)
 
     if mins is not None:
-        if 20 <= mins <= 60:
+        # convertimos mins a horas para hacerlo más cómodo
+        horas = mins / 60.0
+        dias = horas / 24.0
+
+        # 0 a 6 horas
+        if 0 <= horas <= 6:
+            base += 0.04
+        # 6 a 24 horas
+        elif 6 < horas <= 24:
             base += 0.03
-        elif 60 < mins <= 180:
-            base += 0.025
-        elif 180 < mins <= 360:       # 3 a 6 horas
+        # 1 a 3 días
+        elif 1 < dias <= 3:
             base += 0.02
-        elif 360 < mins <= 1440:      # 6h a 24h
-            base += 0.015
-        else:
-            base += 0.0
+        # 3 a 7 días
+        elif 3 < dias <= 7:
+            base += 0.01
+        # más de 7 días → sin bump extra
 
     if _is_big_league(ev.get("league")):
         base += 0.015
